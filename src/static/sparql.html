@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SPARQL Query Interface - CODATA API</title>
-    <link rel="icon" type="image/svg+xml" href="/playground/vite.svg">
+    <link rel="icon" type="image/svg+xml" href="vite.svg">
     <style>
         :root {
             --primary: #2563eb;
@@ -379,6 +379,18 @@ LIMIT 10</textarea>
     </div>
 
     <script>
+        // Compute root path so the SPARQL UI works under subpaths (e.g., /drum)
+        const ROOT_PATH = (() => {
+            const path = window.location.pathname;
+            const idx = path.indexOf('/playground');
+            if (idx === -1) return '';
+            return path.slice(0, idx);
+        })();
+
+        // Fix back-link to respect root path
+        const backLinkEl = document.querySelector('.back-link');
+        if (backLinkEl) backLinkEl.href = `${ROOT_PATH}/playground/`;
+
         const examples = {
             1: `SELECT ?constant ?label
 WHERE {
@@ -472,11 +484,7 @@ LIMIT 50`
             resultInfo.textContent = '';
 
             try {
-                const rootPath = window.location.pathname.includes('/playground') 
-                    ? window.location.pathname.split('/playground')[0] 
-                    : '';
-                
-                const response = await fetch(`${rootPath}/sparql?query=${encodeURIComponent(query)}`, {
+                const response = await fetch(`${ROOT_PATH}/sparql?query=${encodeURIComponent(query)}`, {
                     method: 'GET',
                     headers: {
                         'Accept': 'application/sparql-results+json'

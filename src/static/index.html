@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CODATA Fundamental Constants API</title>
-    <link rel="icon" type="image/svg+xml" href="/playground/vite.svg">
+    <link rel="icon" type="image/svg+xml" href="vite.svg">
     <style>
         :root {
             --primary: #2563eb;
@@ -500,13 +500,13 @@
                 <h2 style="margin-top: 24px;">Quick Links</h2>
                 <ul class="nav-list">
                     <li class="nav-item">
-                        <a href="/docs" class="nav-btn" target="_blank">
+                        <a href="/docs" class="nav-btn" target="_blank" data-link="docs">
                             <span class="icon">📚</span>
                             <span>API Docs</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="/playground/sparql" class="nav-btn" target="_blank">
+                        <a href="/playground/sparql" class="nav-btn" target="_blank" data-link="sparql">
                             <span class="icon">🔍</span>
                             <span>SPARQL</span>
                         </a>
@@ -544,12 +544,26 @@
     </div>
 
     <script>
-        const API_BASE = '';
+        // Compute root path so the playground works under subpaths (e.g., /drum)
+        const ROOT_PATH = (() => {
+            const path = window.location.pathname;
+            const idx = path.indexOf('/playground');
+            if (idx === -1) return '';
+            return path.slice(0, idx);
+        })();
+
+        const API_BASE = ROOT_PATH ? ROOT_PATH : '';
         let currentResource = 'constants';
         let currentData = [];
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            // Rewrite quick links to respect subpath hosting
+            const docsLink = document.querySelector('[data-link="docs"]');
+            if (docsLink) docsLink.href = `${ROOT_PATH}/docs`;
+            const sparqlLink = document.querySelector('[data-link="sparql"]');
+            if (sparqlLink) sparqlLink.href = `${ROOT_PATH}/playground/sparql`;
+
             loadCounts();
             loadResource('constants');
             setupEventListeners();
