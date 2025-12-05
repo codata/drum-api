@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -59,10 +61,13 @@ async def lifespan(app: FastAPI):
     graph = None
 
 
+ROOT_PATH = os.getenv("ROOT_PATH", "")
+
 app = FastAPI(
     title=settings.API_TITLE,
     description=settings.API_DESCRIPTION,
     lifespan=lifespan,
+    root_path=ROOT_PATH,
 )
 
 # CORS middleware for frontend access
@@ -73,6 +78,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Honor X-Forwarded-Prefix for subpath deployments (e.g., /drum)
+@app.middleware("http")
+async def add_root_path_from_forwarded_prefix(request: Request, call_next):
+    prefix = request.headers.get("x-forwarded-prefix")
+    if prefix:
+        prefix = prefix.rstrip("/")
+        if prefix:
+            request.scope["root_path"] = prefix
+    return await call_next(request)
 
 # Serve SPARQL interface at clean URL without .html extension
 # This route must be defined BEFORE mounting static files to avoid being caught by StaticFiles
