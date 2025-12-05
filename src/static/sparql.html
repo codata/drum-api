@@ -387,9 +387,9 @@ LIMIT 10</textarea>
             return path.slice(0, idx);
         })();
 
-        // Fix back-link to respect root path
+        // Fix back-link to respect root path (no trailing slash to avoid 404 behind proxies)
         const backLinkEl = document.querySelector('.back-link');
-        if (backLinkEl) backLinkEl.href = `${ROOT_PATH}/playground/`;
+        if (backLinkEl) backLinkEl.href = `${ROOT_PATH}/playground`;
 
         const examples = {
             1: `SELECT ?constant ?label
