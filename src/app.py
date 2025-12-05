@@ -91,6 +91,12 @@ async def add_root_path_from_forwarded_prefix(request: Request, call_next):
 
 # Serve SPARQL interface at clean URL without .html extension
 # This route must be defined BEFORE mounting static files to avoid being caught by StaticFiles
+@app.get("/playground", response_class=FileResponse)
+async def playground_root():
+    """Serve playground index without losing root_path under proxies."""
+    static_dir = Path(__file__).parent / "static"
+    return FileResponse(static_dir / "index.html")
+
 @app.get("/playground/sparql", response_class=FileResponse)
 async def sparql_interface():
     """Serve the SPARQL query interface."""
