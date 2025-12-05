@@ -3,7 +3,6 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.templating import Jinja2Templates
 from .model import Concept, Quantity, Constant, ConstantValue, Unit, Version, Identifier
 from .config import settings
 from pydantic import BaseModel
@@ -94,6 +93,20 @@ if static_dir.exists():
 # Configure Jinja2 templates
 templates_dir = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
+
+
+# Custom exception handler for HTTPException to include path for 404 errors
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTPException with path information for 404 errors."""
+    response_content = {"detail": exc.detail}
+    if exc.status_code == 404:
+        response_content["path"] = request.url.path
+        response_content["method"] = request.method
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=response_content,
+    )
 
 
 class GraphNotInitializedError(Exception):
