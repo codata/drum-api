@@ -88,10 +88,12 @@ app.add_middleware(
 @app.middleware("http")
 async def add_root_path_from_forwarded_prefix(request: Request, call_next):
     prefix = request.headers.get("x-forwarded-prefix")
+    logger.info(f"[ROOT_PATH] X-Forwarded-Prefix header: {prefix}")
     if prefix:
         prefix = prefix.rstrip("/")
         if prefix:
             request.scope["root_path"] = prefix
+            logger.info(f"[ROOT_PATH] Set root_path to: {prefix}")
     return await call_next(request)
 
 # Handle trailing slashes - redirect to non-trailing version
