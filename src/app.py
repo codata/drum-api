@@ -91,24 +91,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Honor X-Forwarded-Prefix for subpath deployments (e.g., /drum)
-@app.middleware("http")
-async def add_root_path_from_forwarded_prefix(request: Request, call_next):
-    prefix = request.headers.get("x-forwarded-prefix")
-    print(f"[ROOT_PATH] X-Forwarded-Prefix header: {prefix}", flush=True)
-    logger.info(f"[ROOT_PATH] X-Forwarded-Prefix header: {prefix}")
-    if prefix:
-        prefix = prefix.rstrip("/")
-        if prefix:
-            request.scope["root_path"] = prefix
-            print(f"[ROOT_PATH] Set root_path to: {prefix}", flush=True)
-            logger.info(f"[ROOT_PATH] Set root_path to: {prefix}")
-    return await call_next(request)
-
 # Handle trailing slashes - redirect to non-trailing version
-# This must run BEFORE route matching to ensure proper handling
+# This middleware needs root_path to be set, so it must be defined AFTER (executes BEFORE) root_path middleware
 @app.middleware("http")
 async def handle_trailing_slashes(request: Request, call_next):
+    from fastapi.responses import RedirectResponse
+    
+    path = request.url.path
+    root_path = request.scope.get("root_path", "")
+    print(f"[TRAILING SLASH] Request path: {path}, root_path: {root_path}, ends with /: {path.endswith('/')}", flush=True)
+    logger.info(f"[TRAILING SLASH] Request path: {path}, root_path: {root_path}, ends with /: {path.endswith('/')}")
+    
+    # Redirect paths with trailing slashes to non-trailing versions
+    # Exception: root path "/" and /playground/* should keep trailing slashes as-is
+    if path != "/" and path.endswith("/") and not path.startswith("/playground/"):
+        # Strip trailing slash and build redirect URL with root_path
+        new_path = path.rstrip("/")
+        # Include root_path in the redirect URL so proxy context is preserved
+        full_path = f"{root_path}{new_path}" if root_path else new_path
+        # Preserve query string if present
+        query_string = request.url.query
+        redirect_url = f"{full_path}?{query_string}" if query_string else full_path
+        print(f"[TRAILING SLASH] Redirecting to: {redirect_url}", flush=True)
+        logger.info(f"[TRAILING SLASH] Redirecting to: {redirect_url}")
+        return RedirectResponse(url=redirect_url, status_code=307)
+    
+    return await call_next(request)
+
+# Honor X-Forwarded-Prefix for subpath deployments (e.g., /drum)
+# This middleware must be defined LAST so it executes FIRST (before trailing slash handler)
+@app.middleware("http")
+async def add_root_path_from_forwarded_prefix(request: Request, call_next):
     from fastapi.responses import RedirectResponse
     
     path = request.url.path
