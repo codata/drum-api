@@ -101,18 +101,20 @@ async def handle_trailing_slashes(request: Request, call_next):
     from fastapi.responses import RedirectResponse
     
     path = request.url.path
-    logger.info(f"[TRAILING SLASH] Request path: {path}, ends with /: {path.endswith('/')}")
+    root_path = request.scope.get("root_path", "")
+    logger.info(f"[TRAILING SLASH] Request path: {path}, root_path: {root_path}, ends with /: {path.endswith('/')}")
     
     # Redirect paths with trailing slashes to non-trailing versions
     # Exception: root path "/" and /playground/* should keep trailing slashes as-is
     if path != "/" and path.endswith("/") and not path.startswith("/playground/"):
-        # Strip trailing slash and build redirect URL
+        # Strip trailing slash and build redirect URL with root_path
         new_path = path.rstrip("/")
+        # Include root_path in the redirect URL so proxy context is preserved
+        full_path = f"{root_path}{new_path}" if root_path else new_path
         # Preserve query string if present
         query_string = request.url.query
-        redirect_url = f"{new_path}?{query_string}" if query_string else new_path
+        redirect_url = f"{full_path}?{query_string}" if query_string else full_path
         logger.info(f"[TRAILING SLASH] Redirecting to: {redirect_url}")
-        # Use relative URL to preserve proxied context (root_path)
         return RedirectResponse(url=redirect_url, status_code=307)
     
     return await call_next(request)
