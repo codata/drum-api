@@ -100,10 +100,13 @@ async def handle_trailing_slashes(request: Request, call_next):
     # Redirect paths with trailing slashes to non-trailing versions
     # Exception: root path "/" and /playground/* should keep trailing slashes as-is
     if path != "/" and path.endswith("/") and not path.startswith("/playground/"):
-        # Strip trailing slash and redirect
+        # Strip trailing slash and build redirect URL
         new_path = path.rstrip("/")
-        new_url = request.url.replace(path=new_path)
-        return RedirectResponse(url=new_url, status_code=307)
+        # Preserve query string if present
+        query_string = request.url.query
+        redirect_url = f"{new_path}?{query_string}" if query_string else new_path
+        # Use relative URL to preserve proxied context (root_path)
+        return RedirectResponse(url=redirect_url, status_code=307)
     
     return await call_next(request)
 
