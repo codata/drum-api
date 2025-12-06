@@ -44,7 +44,8 @@ SKOS = Namespace("http://www.w3.org/2004/02/skos/core#")
 WIKIDATA = Namespace("https://www.wikidata.org/entity/")
 XSD = Namespace("http://www.w3.org/2001/XMLSchema#")
 
-# Global RDF graph
+# Global RDF graph - loaded at module level before gunicorn forks workers
+# This way the read-only graph is shared across all worker processes
 graph: Graph = None
 
 _ext_to_format = {
@@ -62,18 +63,8 @@ _ext_to_format = {
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan: initialize resources on startup, cleanup on shutdown."""
-    global graph
-    # Startup
-    graph = load_rdf_data()
-    build_version = "v2025-12-06-01:37-fix-root-path-function"
-    logger.info(f"=== BUILD VERSION: {build_version} ===")
-    print(f"=== BUILD VERSION: {build_version} ===", flush=True)
-    logger.info(f"Loaded {len(graph)} triples from RDF data files")
-    logger.info("Trailing slash redirect middleware is active")
+    """Application lifespan: no-op as graph is loaded at module level."""
     yield
-    # Shutdown
-    graph = None
 
 
 ROOT_PATH = os.getenv("ROOT_PATH", "")
@@ -101,22 +92,17 @@ async def handle_trailing_slashes(request: Request, call_next):
     from fastapi.responses import RedirectResponse
     
     path = request.url.path
-    root_path = request.scope.get("root_path", "")
-    print(f"[TRAILING SLASH] Request path: {path}, root_path: {root_path}, ends with /: {path.endswith('/')}", flush=True)
-    logger.info(f"[TRAILING SLASH] Request path: {path}, root_path: {root_path}, ends with /: {path.endswith('/')}")
-    
     # Redirect paths with trailing slashes to non-trailing versions
     # Exception: root path "/" and /playground/* should keep trailing slashes as-is
     if path != "/" and path.endswith("/") and not path.startswith("/playground/"):
         # Strip trailing slash and build redirect URL with root_path
         new_path = path.rstrip("/")
+        root_path = request.scope.get("root_path", "")
         # Include root_path in the redirect URL so proxy context is preserved
         full_path = f"{root_path}{new_path}" if root_path else new_path
         # Preserve query string if present
         query_string = request.url.query
         redirect_url = f"{full_path}?{query_string}" if query_string else full_path
-        print(f"[TRAILING SLASH] Redirecting to: {redirect_url}", flush=True)
-        logger.info(f"[TRAILING SLASH] Redirecting to: {redirect_url}")
         return RedirectResponse(url=redirect_url, status_code=307)
     
     return await call_next(request)
@@ -126,14 +112,10 @@ async def handle_trailing_slashes(request: Request, call_next):
 @app.middleware("http")
 async def add_root_path_from_forwarded_prefix(request: Request, call_next):
     prefix = request.headers.get("x-forwarded-prefix")
-    print(f"[ROOT_PATH] X-Forwarded-Prefix header: {prefix}", flush=True)
-    logger.info(f"[ROOT_PATH] X-Forwarded-Prefix header: {prefix}")
     if prefix:
         prefix = prefix.rstrip("/")
         if prefix:
             request.scope["root_path"] = prefix
-            print(f"[ROOT_PATH] Set root_path to: {prefix}", flush=True)
-            logger.info(f"[ROOT_PATH] Set root_path to: {prefix}")
     return await call_next(request)
 
 # Serve SPARQL interface at clean URL without .html extension
@@ -255,6 +237,13 @@ def load_rdf_data() -> Graph:
         print(f"Info: data directory not found at {data_dir}")
 
     return g
+
+
+# Load RDF graph at module level (before gunicorn forks workers)
+# This allows all worker processes to share the read-only graph in memory
+logger.info("Loading RDF graph at module initialization...")
+graph = load_rdf_data()
+logger.info(f"Loaded {len(graph)} triples from RDF data files - shared across all workers")
 
 
 def format_sparql_results(results, accept: str = ""):
