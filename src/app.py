@@ -59,7 +59,8 @@ async def lifespan(app: FastAPI):
     global graph
     # Startup
     graph = load_rdf_data()
-    print(f"Loaded {len(graph)} triples from RDF data files")
+    logger.info(f"Loaded {len(graph)} triples from RDF data files")
+    logger.info("Trailing slash redirect middleware is active")
     yield
     # Shutdown
     graph = None
