@@ -90,6 +90,23 @@ async def add_root_path_from_forwarded_prefix(request: Request, call_next):
             request.scope["root_path"] = prefix
     return await call_next(request)
 
+# Handle trailing slashes - redirect to non-trailing version
+# This must run BEFORE route matching to ensure proper handling
+@app.middleware("http")
+async def handle_trailing_slashes(request: Request, call_next):
+    from fastapi.responses import RedirectResponse
+    
+    path = request.url.path
+    # Redirect paths with trailing slashes to non-trailing versions
+    # Exception: root path "/" and /playground/* should keep trailing slashes as-is
+    if path != "/" and path.endswith("/") and not path.startswith("/playground/"):
+        # Strip trailing slash and redirect
+        new_path = path.rstrip("/")
+        new_url = request.url.replace(path=new_path)
+        return RedirectResponse(url=new_url, status_code=307)
+    
+    return await call_next(request)
+
 # Serve SPARQL interface at clean URL without .html extension
 # This route must be defined BEFORE mounting static files to avoid being caught by StaticFiles
 @app.get("/playground", response_class=FileResponse)
