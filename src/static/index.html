@@ -71,7 +71,7 @@
             border-radius: 12px;
             padding: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            height: fit-content;
+            const resources = ['constants', 'quantities', 'concepts', 'units', 'constants/versions'];
             position: sticky;
             top: 20px;
         }
@@ -567,6 +567,13 @@
         })();
 
         const API_BASE = ROOT_PATH ? ROOT_PATH : '';
+        const RESOURCE_PATHS = {
+            constants: 'constants',
+            quantities: 'quantities',
+            concepts: 'concepts',
+            units: 'units',
+            versions: 'constants/versions',
+        };
         let currentResource = 'constants';
         let currentData = [];
 
@@ -608,7 +615,7 @@
             const resources = ['constants', 'quantities', 'concepts', 'units', 'versions'];
             for (const resource of resources) {
                 try {
-                    const response = await fetch(`${API_BASE}/${resource}`);
+                    const response = await fetch(`${API_BASE}/${RESOURCE_PATHS[resource]}`);
                     const data = await response.json();
                     document.getElementById(`count-${resource}`).textContent = data.length;
                 } catch (e) {
@@ -629,7 +636,7 @@
             `;
 
             try {
-                const response = await fetch(`${API_BASE}/${resource}`);
+                const response = await fetch(`${API_BASE}/${RESOURCE_PATHS[resource]}`);
                 currentData = await response.json();
                 renderList(currentData);
             } catch (e) {
@@ -724,7 +731,7 @@
             openDetail();
 
             try {
-                const response = await fetch(`${API_BASE}/${resource}/${id}`);
+                const response = await fetch(`${API_BASE}/${RESOURCE_PATHS[resource]}/${id}`);
                 const item = await response.json();
                 renderDetail(resource, item);
             } catch (e) {
@@ -735,7 +742,7 @@
                     </div>
                 `;
             }
-        }A
+        }
 
         function renderDetail(resource, item) {
             document.getElementById('detail-title').textContent = item.name || item.id;

@@ -27,14 +27,14 @@ This is an experimental, early-release open source Python API for browsing CODAT
 - `GET /quantities` - Browse all physical quantities
 - `GET /constants` - Browse all fundamental constants
 - `GET /units` - Browse all units of measurement
-- `GET /versions` - Browse all CODATA version releases
+- `GET /constants/versions` - Browse all CODATA version releases
 
 ### Resource Details
 - `GET /concepts/{id}` - Get concept details with relationships
 - `GET /quantities/{id}` - Get quantity details with associated constants
 - `GET /constants/{id}` - Get constant details with values across versions
 - `GET /units/{id}` - Get unit details
-- `GET /versions/{id}` - Get version release information
+- `GET /constants/versions/{id}` - Get version release information
 
 ### Advanced
 - `GET /sparql` - Direct SPARQL query endpoint (query parameter: `q`)
@@ -175,7 +175,7 @@ uvicorn src.app:app --host 0.0.0.0 --port 8000 --workers 4
 For high-performance production deployment:
 
 ```bash
-gunicorn src.app:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+gunicorn src.app:app --worker-class uvicorn.workers.UvicornWorker --workers 4 --preload --bind 0.0.0.0:8100 --access-logfile - --error-logfile - --log-level info
 ```
 
 Configuration is provided in `gunicorn.conf.py`.

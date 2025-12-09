@@ -919,6 +919,139 @@ async def constants(request: Request):
         raise HTTPException(status_code=400, detail=f"SPARQL query error: {e.message}")
 
 
+@app.get("/constants/versions")
+async def versions(request: Request):
+    """Retrieve all versions using SPARQL and return as structured data."""
+    try:
+        query = """
+            SELECT ?uri ?identifier ?issued
+            WHERE {
+                ?uri a codata:Version ;
+                    schema:identifier ?identifier .
+                OPTIONAL { ?uri dcterms:issued ?issued }
+            }
+            ORDER BY ?identifier
+            """
+        query = build_sparql_query(query)
+        results = run_sparql_query(query)
+
+        bindings = list(results)
+
+        # Build Version instances
+        versions_list = []
+        for row in bindings:
+            v_uri = str(row.uri)
+            v_id = str(row.identifier) if row.identifier else v_uri.split("/")[-1]
+            
+            # Parse the issued date
+            published = None
+            if row.issued:
+                from datetime import date
+                published = date.fromisoformat(str(row.issued))
+            
+            versions_list.append(Version(id=v_id, uri=v_uri, published=published))
+
+        # Prepare JSON serializable data
+        versions_json = [v.model_dump(exclude_none=True) for v in versions_list]
+        
+        # Check if HTML is requested
+        accept = request.headers.get("accept", "")
+        if "text/html" in accept:
+            json_ld = json.dumps(versions_json, indent=2)
+            return templates.TemplateResponse(
+                "versions.html",
+                {"request": request, "resources": versions_json, "json_ld": json_ld}
+            )
+        
+        return JSONResponse(content=versions_json)
+
+    except GraphNotInitializedError:
+        raise HTTPException(status_code=503, detail="RDF graph not initialized")
+    except SparqlQueryError as e:
+        raise HTTPException(status_code=400, detail=f"SPARQL query error: {e.message}")
+
+
+@app.get("/constants/versions/{id}")
+async def version(id: str, request: Request):
+    """Retrieve version information with content negotiation support.
+    
+    Returns JSON by default, or RDF formats based on Accept header.
+    """
+    try:
+        uri = VERSION[id]
+        
+        # SPARQL query to get version details
+        query = f"""
+            SELECT ?issued ?identifier
+            WHERE {{
+                <{uri}> a codata:Version .
+                OPTIONAL {{ <{uri}> dcterms:issued ?issued }}
+                OPTIONAL {{ <{uri}> schema:identifier ?identifier }}
+            }}
+            """
+        query = build_sparql_query(query)
+        results = run_sparql_query(query)
+
+        bindings = list(results)
+        if not bindings:
+            raise HTTPException(status_code=404, detail=f"Version '{id}' not found")
+
+        first = bindings[0]
+        
+        # Parse the issued date
+        published = None
+        if first.issued:
+            from datetime import date
+            # The date is in xsd:date format (YYYY-MM-DD)
+            published = date.fromisoformat(str(first.issued))
+
+        # Query for constants that have ConstantValues belonging to this version
+        # ConstantValue has codata:hasVersion pointing to the version
+        # and dcterms:isVersionOf pointing to the parent Constant
+        constants_query = f"""
+            SELECT DISTINCT ?constantUri ?constantLabel
+            WHERE {{
+                ?constantValue a codata:ConstantValue ;
+                    codata:hasVersion <{uri}> ;
+                    dcterms:isVersionOf ?constantUri .
+                ?constantUri skos:prefLabel ?constantLabel .
+                FILTER (lang(?constantLabel) = "" || lang(?constantLabel) = "en")
+            }}
+            ORDER BY ?constantLabel
+            """
+        constants_query = build_sparql_query(constants_query)
+        constants_results = run_sparql_query(constants_query)
+        constants_bindings = list(constants_results)
+
+        # Build Constant instances
+        constants = []
+        for row in constants_bindings:
+            c_uri = str(row.constantUri)
+            c_id = c_uri.split("/")[-1]
+            c_label = str(row.constantLabel) if row.constantLabel else c_id
+            constants.append(Constant(id=c_id, uri=c_uri, name=c_label))
+
+        # Build the Version response
+        version_obj = Version(
+            id=id,
+            uri=str(uri),
+            published=published,
+            constants=constants if constants else None,
+        )
+
+        json_response = JSONResponse(content=version_obj.model_dump(exclude_none=True))
+        
+        # Prepare data for HTML template
+        resource_data = version_obj.model_dump(exclude_none=True)
+        
+        return negotiate_content(str(uri), request, json_response, resource_data, "version.html")
+
+    except GraphNotInitializedError:
+        raise HTTPException(status_code=503, detail="RDF graph not initialized")
+    except SparqlQueryError as e:
+        raise HTTPException(status_code=400, detail=f"SPARQL query error: {e.message}")
+
+
 @app.get("/constants/{id}")
 async def constant(id: str, request: Request):
     """Retrieve constant information with content negotiation support.
@@ -1232,7 +1365,7 @@ async def unit(id: str, request: Request):
         raise HTTPException(status_code=400, detail=f"SPARQL query error: {e.message}")
 
 
-@app.get("/versions")
+@app.get("/constants/versions")
 async def versions(request: Request):
     """Retrieve all versions using SPARQL and return as structured data."""
     try:
@@ -1283,7 +1416,7 @@ async def versions(request: Request):
     except SparqlQueryError as e:
         raise HTTPException(status_code=400, detail=f"SPARQL query error: {e.message}")
 
-@app.get("/versions/{id}")
+@app.get("/constants/versions/{id}")
 async def version(id: str, request: Request):
     """Retrieve version information with content negotiation support.
     

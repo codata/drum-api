@@ -16,7 +16,7 @@
     <ul class="list">
     {% for version in resources %}
         <li>
-            <a href="{{ root_path }}/versions/{{ version.id }}">Version {{ version.id }}</a>
+            <a href="{{ root_path }}/constants/versions/{{ version.id }}">Version {{ version.id }}</a>
             {% if version.published %}
             <span style="color: #6c757d; font-size: 0.9rem; margin-left: 1rem;">Published: {{ version.published }}</span>
             {% endif %}
