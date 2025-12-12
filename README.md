@@ -8,6 +8,13 @@ This is an experimental, early-release open source Python API for browsing CODAT
 
 > **Note:** This project is in active development and should be considered experimental. APIs, data models, and features may change without notice. Not recommended for production use at this time.
 
+## Try It Now
+
+The API is available for testing, evaluation, and feedback at:
+**https://api.codata.org/drum**
+
+Explore the interactive playground and API documentation at the root endpoint.
+
 ## Features
 - **RESTful API** built with FastAPI with automatic OpenAPI documentation
 - **Content Negotiation** - HTML, JSON, and RDF formats (Turtle, N-Triples, N3, JSON-LD, RDF/XML, TriG)
